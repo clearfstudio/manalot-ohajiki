@@ -114,6 +114,43 @@
 }
 .back-btn:active{ transform: translateY(1px); }
 
+.seg .btn.active{
+  outline: 3px solid var(--accent);
+  border-color: transparent;
+}
+
+/* もんだいモード切替（トップ） */
+#qtype-seg .btn{
+  background: #f3f4f6;      /* 薄いグレー */
+  color: #6b7280;           /* やや暗い文字 */
+  border: 2px solid #e5e7eb;
+  opacity: .85;
+  filter: grayscale(.2);
+}
+#qtype-seg .btn.active{
+  background: var(--accent);
+  color: #fff;
+  outline: 3px solid var(--accent);
+  border-color: transparent;
+  opacity: 1;
+  filter: none;
+}
+
+.btn, .pick {
+  touch-action: manipulation;
+}
+
+/* 文章モードの問題文表示 */
+.sentence{
+  padding:12px;
+  border:2px solid #e5e7eb;
+  border-radius:12px;
+  background:#fff;
+  font-size: clamp(18px, 2.6vw, 22px);
+  text-align:center;
+  box-shadow: 0 6px 14px rgba(0,0,0,.04);
+}
+
 
     [hidden]{ display:none !important; }
   </style>
@@ -125,6 +162,11 @@
     <!-- トップ画面 -->
     <section id="screen-top" class="panel" role="region" aria-label="トップ画面">
       <p style="text-align:center; color:var(--muted); margin:8px 0 6px;">モードをえらんでね</p>
+      <!-- 問題モード：おはじき／ぶんしょう -->
+<div class="seg" id="qtype-seg" style="display:flex; gap:8px; justify-content:center; margin-bottom:10px;">
+  <button class="btn ghost" data-qtype="chips">もんだいモード：おはじき</button>
+  <button class="btn ghost" data-qtype="sentence">もんだいモード：ぶんしょう</button>
+</div>
       <div class="top-buttons">
         <button class="btn primary" data-mode="more">おおい</button>
         <button class="btn primary" data-mode="less">すくない</button>
@@ -149,6 +191,7 @@
           <div class="grid10" id="right-grid"></div>
         </div>
       </div>
+      <div id="sentence-area" class="sentence" hidden></div>
 
 <div class="answers">
   <!-- 追加：answer-card で“解答文だけ”を囲む -->
@@ -157,7 +200,7 @@
       <div class="answer-box" id="answer-color">　</div>
       <div>が</div>
       <div class="answer-box small" id="answer-number">　</div>
-      <div>こ</div>
+      <div id="answer-unit">こ</div>
       <div class="answer-box" id="answer-mode">おおい</div>
     </div>
   </div>
@@ -189,6 +232,14 @@
   <canvas id="confetti-canvas" style="position:fixed; inset:0; pointer-events:none;"></canvas>
 
   <script>
+
+    
+    // ===== ゲーム状態 =====
+    let baseMode = 'more';   // 'more' | 'less' | 'random'
+    let qType = 'chips';     // 'chips' | 'sentence'
+    let qIndex = 0;        // 0..2
+    let history = [];      // [true/false,true/false,true/false]
+    let current = null;    // 問題データ
     // ===== データ定義 =====
     const COLORS = [
       { key:'red',    name:'あか',    fill:'#ff4d4d', bg:'rgba(255,77,77,.12)' },
@@ -196,6 +247,21 @@
       { key:'green',  name:'みどり',  fill:'#22c55e', bg:'rgba(34,197,94,.12)' },
       { key:'yellow', name:'きいろ',  fill:'#f59e0b', bg:'rgba(245,158,11,.14)' }
     ];
+
+const ITEM_PAIRS = [
+  { unit:'こ',  a:{ key:'mikan',  name:'みかん' },           b:{ key:'ringo',  name:'りんご' } },
+  { unit:'こ',  a:{ key:'kiwi',   name:'キウイ' },           b:{ key:'ichigo', name:'いちご' } },
+  { unit:'こ',  a:{ key:'tamanegi', name:'たまねぎ' },       b:{ key:'jagaimo', name:'じゃがいも' } },
+  { unit:'さつ',a:{ key:'akaihon',  name:'あかいほん' },     b:{ key:'aoihon',  name:'あおいほん' } },
+  { unit:'まい',a:{ key:'cookie',   name:'クッキー' },       b:{ key:'biscuit', name:'ビスケット' } },
+  { unit:'こ',  a:{ key:'akablock', name:'あかいブロック' }, b:{ key:'aoblock', name:'あおいブロック' } },
+  { unit:'とう',a:{ key:'uma',     name:'うま' },            b:{ key:'ushi',    name:'うし' } },
+  { unit:'まい',a:{ key:'pinkori',  name:'ピンクのおりがみ' }, b:{ key:'orangeori', name:'オレンジのおりがみ' } },
+  { unit:'こ',  a:{ key:'tomato',   name:'トマト' },         b:{ key:'tamago',  name:'たまご' } },
+  { unit:'こ',  a:{ key:'ame',      name:'あめ' },           b:{ key:'choco',   name:'チョコレート' } },
+  { unit:'だい',  a:{ key:'aokuruma',      name:'あおいくるま' }, b:{ key:'midorikuruma',   name:'みどりのくるま' } },
+];
+
 
     const screens = {
       top: document.getElementById('screen-top'),
@@ -206,6 +272,8 @@
     const dom = {
       title: document.querySelector('.title'),
       head: document.getElementById('game-head'),
+      board: document.querySelector('.board'),
+      sentence: document.getElementById('sentence-area'),
       left: {
         side: document.getElementById('left-side'),
         chip: document.getElementById('left-chip'),
@@ -221,7 +289,8 @@
       answers: {
         color: document.getElementById('answer-color'),
         number: document.getElementById('answer-number'),
-        mode: document.getElementById('answer-mode')
+        mode: document.getElementById('answer-mode'),
+        unit: document.getElementById('answer-unit')
       },
       picks: {
         color: document.getElementById('color-picks'),
@@ -237,11 +306,19 @@
       backBtn: document.getElementById('btn-back')
     };
 
-    // ===== ゲーム状態 =====
-    let baseMode = 'more'; // 'more' | 'less' | 'random'
-    let qIndex = 0;        // 0..2
-    let history = [];      // [true/false,true/false,true/false]
-    let current = null;    // 問題データ
+      // トップの問題モード切替ボタン群
+      const qtypeButtons = document.querySelectorAll('#qtype-seg [data-qtype]');
+      qtypeButtons.forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          qType = btn.dataset.qtype;        // 状態を更新
+          updateQtypeSegActive();            // 見た目を更新
+        });
+      });
+      updateQtypeSegActive();
+      function updateQtypeSegActive(){
+        qtypeButtons.forEach(b=> b.classList.toggle('active', b.dataset.qtype===qType));
+      }
+
 
     const topBtns = document.querySelectorAll('#screen-top .btn[data-mode]');
     topBtns.forEach(b=>b.addEventListener('click', e=>{
@@ -262,6 +339,7 @@
         // 初期化
         baseMode = 'more'; qIndex = 0; history = []; current=null;
         dom.result.textContent = '';
+        updateQtypeSegActive();
       }
     }
 
@@ -295,7 +373,14 @@
 
   // ランダムモードなら問ごとにモード決定
   const qMode = (baseMode==='random') ? (Math.random()<0.5?'more':'less') : baseMode;
+if (qType === 'sentence') {
+  const pair = ITEM_PAIRS[Math.floor(Math.random() * ITEM_PAIRS.length)];
+  const [leftItem, rightItem] = (Math.random() < 0.5) ? [pair.a, pair.b] : [pair.b, pair.a];
+  const unit = pair.unit;
+  current = { leftItem, rightItem, unit, leftNum, rightNum, qMode };
+} else {
   current = { leftColor, rightColor, leftNum, rightNum, qMode };
+}
 }
 
 
@@ -303,15 +388,30 @@
       // 見出し
       dom.head.textContent = `どっちが　いくつ　${current.qMode==='more'?'おおい':'すくない'}かな？`;
 
-      // 左右エリア
-      renderSide(dom.left, current.leftColor, current.leftNum);
-      renderSide(dom.right, current.rightColor, current.rightNum);
+// 問題表示：qTypeで分岐
+const isSentence = (qType === 'sentence');
+dom.board.hidden = isSentence;
+dom.sentence.hidden = !isSentence;
+if(isSentence){
+  const modeWord = (current.qMode === 'more') ? 'おおい' : 'すくない';
+  const unit = current.unit || 'こ';
+  const L = current.leftItem  || current.leftColor;
+  const R = current.rightItem || current.rightColor;
+  dom.sentence.textContent =
+    `${L.name}が${current.leftNum}${unit}、${R.name}が${current.rightNum}${unit}あります。` +
+    `どちらがなん${unit} ${modeWord}でしょうか。`;
+}else{
+  renderSide(dom.left,  current.leftColor,  current.leftNum);
+  renderSide(dom.right, current.rightColor, current.rightNum);
+}
 
       // 回答欄初期化
       selected = { color:null, number:null, mode: (baseMode==='random' ? null : current.qMode) };
       dom.answers.color.textContent = '　';
       dom.answers.number.textContent = '　';
       dom.answers.mode.textContent = (baseMode==='random' ? '　' : (current.qMode==='more'?'おおい':'すくない'));
+      const unitForAnswer = (qType === 'sentence') ? (current.unit || 'こ') : 'こ';
+      dom.answers.unit.textContent = unitForAnswer;
 
       // ピッカー描画
       renderColorPicks();
@@ -326,7 +426,7 @@
     }
 
     function renderSide(target, color, count){
-      target.chip.style.background = color.fill;
+      target.chip.style.display = 'none';
       target.name.textContent = `${color.name}`;
       target.side.style.background = color.bg;
       // グリッド10個にドットを入れる（位置固定で整列）
@@ -342,21 +442,47 @@
     // ===== 回答選択UI =====
     let selected = { color:null, number:null, mode:'more' };
 
-    function renderColorPicks(){
-      dom.picks.color.innerHTML = '';
-      [current.leftColor, current.rightColor].forEach(c => {
-        const btn = document.createElement('button');
-        btn.className = 'pick';
-        btn.dataset.pickColor = c.key;
-        btn.innerHTML = `<span class="chip" style="background:${c.fill};"></span>${c.name}`;
-        btn.addEventListener('click', ()=>{
-          selected.color = c.key;
-          updatePickActiveStates();
-          dom.answers.color.textContent = c.name;
-        });
-        dom.picks.color.appendChild(btn);
+function renderColorPicks(){
+  dom.picks.color.innerHTML = '';
+
+  const isSentence = (qType === 'sentence');
+
+  if(isSentence){
+    // 文章モード：要素2択
+    const options = [
+      { key: current.leftItem.key,  name: current.leftItem.name,  side: 'left'  },
+      { key: current.rightItem.key, name: current.rightItem.name, side: 'right' }
+    ];
+    options.forEach(opt=>{
+      const btn = document.createElement('button');
+      btn.className = 'pick';
+      btn.dataset.pickItem = opt.key;   // ← 要素キー
+      btn.textContent = opt.name;
+      btn.addEventListener('click', ()=>{
+        selected.color = opt.key;
+        dom.answers.color.textContent = opt.name;
+        updatePickActiveStates();
       });
-    }
+      dom.picks.color.appendChild(btn);
+    });
+
+  }else{
+    // 従来：色2択
+    [current.leftColor, current.rightColor].forEach(c => {
+      const btn = document.createElement('button');
+      btn.className = 'pick';
+      btn.dataset.pickColor = c.key;
+      btn.innerHTML = `<span class="chip chip--pick" style="background:${c.fill};"></span>${c.name}`;
+      btn.addEventListener('click', ()=>{
+        selected.color = c.key;
+        dom.answers.color.textContent = c.name;
+        updatePickActiveStates();
+      });
+      dom.picks.color.appendChild(btn);
+    });
+  }
+}
+
 
 function renderModePicks(){
   const show = (baseMode === 'random');
@@ -404,8 +530,8 @@ function renderModePicks(){
     function updatePickActiveStates(){
       // 色
       [...dom.picks.color.children].forEach(btn=>{
-        const k = btn.dataset.pickColor;
-        btn.classList.toggle('active', selected.color===k);
+    const key = btn.dataset.pickColor || btn.dataset.pickItem;
+    btn.classList.toggle('active', selected.color === key);
       });
       // モード
       if(baseMode==='random'){
@@ -427,25 +553,29 @@ function renderModePicks(){
         return;
       }
       const leftMore = current.leftNum > current.rightNum;
-      const moreColor = leftMore ? current.leftColor : current.rightColor;
-      const lessColor = leftMore ? current.rightColor : current.leftColor;
-      const diff = Math.abs(current.leftNum - current.rightNum);
+  const Lobj = (qType === 'sentence') ? current.leftItem  : current.leftColor;
+  const Robj = (qType === 'sentence') ? current.rightItem : current.rightColor;
 
-      const needMode = baseMode==='random' ? selected.mode : current.qMode;
-      const targetColor = (needMode==='more') ? moreColor : lessColor;
+  const moreObj = leftMore ? Lobj : Robj;
+  const lessObj = leftMore ? Robj : Lobj;
+  const diff = Math.abs(current.leftNum - current.rightNum);
 
-      const colorOK = (selected.color === targetColor.key);
-      const numberOK = (selected.number === diff);
-      const allOK = colorOK && numberOK;
+  const needMode = baseMode==='random' ? selected.mode : current.qMode;
+  const targetObj = (needMode==='more') ? moreObj : lessObj;
+
+  const colorOK = (selected.color === targetObj.key); // ← 要素でも色でも key 比較でOK
+  const numberOK = (selected.number === diff);
+  const allOK = colorOK && numberOK;
 
       // 表示
-      if(allOK){
-        dom.result.innerHTML = `⭕<span class="good">せいかい！</span>`;
-        dom.result.className = 'result-area good';
-      }else{
-        dom.result.innerHTML = `❌<span class="bad">ざんねん！</span>　${targetColor.name}が　${diff}こ　${needMode==='more'?'おおい':'すくない'}`;
-        dom.result.className = 'result-area bad';
-      }
+  if(allOK){
+    dom.result.innerHTML = `⭕<span class="good">せいかい！</span>`;
+    dom.result.className = 'result-area good';
+  }else{
+    const unit = current.unit || 'こ';
+    dom.result.innerHTML = `❌<span class="bad">ざんねん！</span>　${targetObj.name}が　${diff}${unit}　${needMode==='more'?'おおい':'すくない'}`;
+    dom.result.className = 'result-area bad';
+  }
 
       history[qIndex] = allOK;
 
