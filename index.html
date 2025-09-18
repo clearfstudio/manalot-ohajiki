@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>どっちが　いくつ　おおいかな？</title>
+  <style>
+    :root{
+      --bg:#f7fbff;
+      --panel:#ffffff;
+      --ink:#333;
+      --muted:#6b7280;
+      --accent:#4fb3ff;
+      --ok:#22c55e;
+      --ng:#ef4444;
+      --radius: 20px;
+      --shadow: 0 12px 28px rgba(0,0,0,.08);
+      --gap: 14px;
+    }
+
+    html, body{ height:100%; margin:0; background:var(--bg); color:var(--ink); font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic UI", sans-serif; }
+
+    .wrap{ min-height:100%; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:var(--gap); padding:16px; }
+    .title{ font-size: clamp(20px, 3.4vw, 36px); margin-top:6px; }
+
+    .panel{ width: min(800px, 96vw); background:var(--panel); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
+
+    .top-buttons{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:8px; }
+    .btn{ border:none; border-radius: 999px; padding:14px 18px; font-size: clamp(16px, 2.2vw, 20px); cursor:pointer; box-shadow: 0 6px 14px rgba(0,0,0,.06); background:#fff; }
+    .btn.primary{ background:var(--accent); color:#fff; }
+    .btn.ghost{ background:#fff; border:2px solid #e5e7eb; }
+    .btn:active{ transform: translateY(1px); }
+
+    .game-head{ font-weight:700; text-align:center; font-size: clamp(18px, 2.6vw, 26px); margin-bottom: 8px; }
+
+    .board{ display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    .side{ border:2px solid #e5e7eb; border-radius: 16px; padding:12px; display:flex; flex-direction:column; gap:10px; }
+    .side .label{ display:flex; align-items:center; gap:10px; font-weight:700; }
+    .chip{ width:22px; height:22px; border-radius:50%; display:inline-block; border:2px solid rgba(0,0,0,.1); flex-shrink:0; }
+
+    .grid10{ display:grid; grid-template-columns: repeat(5, minmax(24px, 1fr)); grid-template-rows: repeat(2, 1fr); gap:8px; justify-items:center; align-items:center; padding:8px; background: rgba(0,0,0,.02); border-radius: 12px; }
+    .dot{ width: clamp(18px, 2.5vw, 35px); height: clamp(18px, 2.5vw, 35px); border-radius: 50%; border:2px solid rgba(0,0,0,.15); }
+    .dot.hidden{ visibility:hidden; }
+
+    .answers{ margin-top: 8px; display:grid; grid-template-columns: 1fr; gap:12px; }
+
+    .answer-line{ display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
+    .answer-box{ font-weight: 800; min-width: 8ch; height: 35px; padding: 8px 8px; border:2px solid #d1d5db; border-radius: 10px; background:#fff; font-size: 22px; display:flex; align-items:center; justify-content:center; }
+    .answer-box.small{ min-width: 4ch; }
+
+.answers{
+  background:transparent;
+  border:none;
+  border-radius:0;
+  box-shadow:none;
+  padding:0;
+  margin-top:12px;
+}
+
+.answer-card{
+  background:#fff;
+  border:3px solid var(--accent);
+  border-radius:14px;
+  box-shadow: 0 8px 20px rgba(0,0,0,.06);
+  padding:14px 12px;
+  margin: 0 0 12px;
+}
+.answer-card::before{
+  content:"こたえ";
+  display:block;
+  font-weight:800;
+  color:var(--accent);
+  margin:-4px 0 8px;
+  font-size: clamp(14px, 2vw, 16px);
+  letter-spacing:.03em;
+}
+
+/* 解答の中の各ボックスはそのまま強調でOK */
+.answer-line{ font-size: clamp(18px, 2.6vw, 22px); }
+.answer-box{ border-width:3px; box-shadow: inset 0 0 0 3px rgba(0,0,0,.02); }
+
+
+    .picker-row{ display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; }
+    .pick{ border:2px solid #e5e7eb; background:#fff; padding:10px 14px; border-radius: 12px; font-size:18px; cursor:pointer; display:flex; align-items:center; gap:8px; }
+    .pick.active{ outline: 3px solid var(--accent); border-color: transparent; }
+    .pick.num{ width: 48px; height:48px; padding:0; display:inline-flex; align-items:center; justify-content:center; border-radius:12px; font-weight:700; }
+
+    .actions{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top: 6px; }
+
+    .result-area{ min-height: 40px; text-align:center; font-size: 18px; font-weight:700; margin-top: 6px; }
+    .good{ color: var(--ok); } .bad{ color: var(--ng); }
+
+    /* 成績発表 */
+    .summary{ text-align:center; }
+    .summary .score-row{ display:flex; justify-content:center; gap:12px; margin: 8px 0 14px; font-size: 22px; }
+
+    /* 小さめ画面調整 */
+    @media (max-width: 860px){
+      .board{ grid-template-columns: 1fr; }
+    }
+
+    /* ゲームパネル左上の「もどる」 */
+#screen-game{ position: relative; } /* 子をabsolute配置するため */
+.back-btn{
+  position:absolute;
+  top:10px; left:10px;
+  padding:8px 12px;
+  font-size:14px;
+  border:2px solid #e5e7eb;   /* 既存のbtn.ghostに近い軽さ */
+  background:#fff;
+  border-radius:999px;
+  box-shadow: 0 4px 10px rgba(0,0,0,.06);
+}
+.back-btn:active{ transform: translateY(1px); }
+
+
+    [hidden]{ display:none !important; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 class="title">どっちが　いくつ　おおいかな？</h1>
+
+    <!-- トップ画面 -->
+    <section id="screen-top" class="panel" role="region" aria-label="トップ画面">
+      <p style="text-align:center; color:var(--muted); margin:8px 0 6px;">モードをえらんでね</p>
+      <div class="top-buttons">
+        <button class="btn primary" data-mode="more">おおい</button>
+        <button class="btn primary" data-mode="less">すくない</button>
+        <button class="btn primary" data-mode="random">ランダム</button>
+      </div>
+    </section>
+
+    <!-- ゲーム画面 -->
+    <section id="screen-game" class="panel" hidden role="region" aria-label="ゲーム画面">
+      <button class="btn back-btn" id="btn-back" type="button">もどる</button>
+      <div class="game-head" id="game-head">どっちが　いくつ　おおいかな？</div>
+
+      <div class="board" aria-live="polite">
+        <!-- 左 -->
+        <div class="side" id="left-side">
+          <div class="label"><span class="chip" id="left-chip"></span><span id="left-name">—</span></div>
+          <div class="grid10" id="left-grid"></div>
+        </div>
+        <!-- 右 -->
+        <div class="side" id="right-side">
+          <div class="label"><span class="chip" id="right-chip"></span><span id="right-name">—</span></div>
+          <div class="grid10" id="right-grid"></div>
+        </div>
+      </div>
+
+<div class="answers">
+  <!-- 追加：answer-card で“解答文だけ”を囲む -->
+  <div class="answer-card">
+    <div class="answer-line">
+      <div class="answer-box" id="answer-color">　</div>
+      <div>が</div>
+      <div class="answer-box small" id="answer-number">　</div>
+      <div>こ</div>
+      <div class="answer-box" id="answer-mode">おおい</div>
+    </div>
+  </div>
+
+  <!-- 選択肢（枠の外） -->
+  <div class="picker-row" id="color-picks"></div>
+  <div class="picker-row" id="number-picks"></div>
+  <div class="picker-row" id="mode-picks" hidden> ... </div>
+
+  <div class="actions">
+    <button class="btn ghost" id="btn-check">こたえあわせ</button>
+    <button class="btn primary" id="btn-next" hidden>つぎのもんだいへ</button>
+  </div>
+  <div class="result-area" id="result-area"></div>
+</div>
+
+    </section>
+
+    <!-- 成績発表 -->
+    <section id="screen-summary" class="panel summary" hidden role="region" aria-label="せいせきはっぴょう">
+      <h2 style="margin:0 0 6px">せいせきはっぴょう！</h2>
+      <div class="score-row" id="score-row"></div>
+      <div id="summary-msg" style="font-size:20px; margin-bottom:10px"></div>
+      <button class="btn primary" id="btn-restart">さいしょにもどる</button>
+    </section>
+  </div>
+
+  <!-- 紙吹雪 -->
+  <canvas id="confetti-canvas" style="position:fixed; inset:0; pointer-events:none;"></canvas>
+
+  <script>
+    // ===== データ定義 =====
+    const COLORS = [
+      { key:'red',    name:'あか',    fill:'#ff4d4d', bg:'rgba(255,77,77,.12)' },
+      { key:'blue',   name:'あお',    fill:'#3b82f6', bg:'rgba(59,130,246,.12)' },
+      { key:'green',  name:'みどり',  fill:'#22c55e', bg:'rgba(34,197,94,.12)' },
+      { key:'yellow', name:'きいろ',  fill:'#f59e0b', bg:'rgba(245,158,11,.14)' }
+    ];
+
+    const screens = {
+      top: document.getElementById('screen-top'),
+      game: document.getElementById('screen-game'),
+      summary: document.getElementById('screen-summary')
+    };
+
+    const dom = {
+      title: document.querySelector('.title'),
+      head: document.getElementById('game-head'),
+      left: {
+        side: document.getElementById('left-side'),
+        chip: document.getElementById('left-chip'),
+        name: document.getElementById('left-name'),
+        grid: document.getElementById('left-grid')
+      },
+      right: {
+        side: document.getElementById('right-side'),
+        chip: document.getElementById('right-chip'),
+        name: document.getElementById('right-name'),
+        grid: document.getElementById('right-grid')
+      },
+      answers: {
+        color: document.getElementById('answer-color'),
+        number: document.getElementById('answer-number'),
+        mode: document.getElementById('answer-mode')
+      },
+      picks: {
+        color: document.getElementById('color-picks'),
+        mode: document.getElementById('mode-picks'),
+        number: document.getElementById('number-picks')
+      },
+      checkBtn: document.getElementById('btn-check'),
+      nextBtn: document.getElementById('btn-next'),
+      result: document.getElementById('result-area'),
+      scoreRow: document.getElementById('score-row'),
+      summaryMsg: document.getElementById('summary-msg'),
+      restart: document.getElementById('btn-restart'),
+      backBtn: document.getElementById('btn-back')
+    };
+
+    // ===== ゲーム状態 =====
+    let baseMode = 'more'; // 'more' | 'less' | 'random'
+    let qIndex = 0;        // 0..2
+    let history = [];      // [true/false,true/false,true/false]
+    let current = null;    // 問題データ
+
+    const topBtns = document.querySelectorAll('#screen-top .btn[data-mode]');
+    topBtns.forEach(b=>b.addEventListener('click', e=>{
+      startGame(e.currentTarget.dataset.mode);
+    }));
+
+    dom.checkBtn.addEventListener('click', checkAnswer);
+    dom.nextBtn.addEventListener('click', goNext);
+    dom.restart.addEventListener('click', () => showScreen('top'));
+    dom.backBtn.addEventListener('click', () => showScreen('top'));
+
+    function showScreen(which){
+      screens.top.hidden = which !== 'top';
+      screens.game.hidden = which !== 'game';
+      screens.summary.hidden = which !== 'summary';
+      dom.title.hidden = (which === 'game');
+      if(which==='top'){
+        // 初期化
+        baseMode = 'more'; qIndex = 0; history = []; current=null;
+        dom.result.textContent = '';
+      }
+    }
+
+    function startGame(mode){
+      baseMode = mode; qIndex = 0; history = []; dom.result.textContent='';
+      showScreen('game');
+      makeQuestion();
+      renderQuestion();
+    }
+
+    function makeQuestion(){
+  // 色を2つ選ぶ（完全ランダム・左右非依存）
+  const pool = [...COLORS];
+  const leftColor  = pool.splice(Math.floor(Math.random()*pool.length),1)[0];
+  const rightColor = pool.splice(Math.floor(Math.random()*pool.length),1)[0];
+
+  // どちらが多い/少ないかは先にランダムで決定
+  const biggerSide = Math.random() < 0.5 ? 'left' : 'right';
+
+  // 小さい方を1..9で決め、差を1..(10-小さい方)で決める → 大きい方は必ず1..10に収まる
+  const smaller = 1 + Math.floor(Math.random()*9); // 1..9
+  const diff    = 1 + Math.floor(Math.random()*(10 - smaller)); // 1..(10-smaller)
+  const bigger  = smaller + diff; // 2..10 かつ bigger>smaller
+
+  let leftNum, rightNum;
+  if(biggerSide==='left'){
+    leftNum = bigger; rightNum = smaller;
+  }else{
+    leftNum = smaller; rightNum = bigger;
+  }
+
+  // ランダムモードなら問ごとにモード決定
+  const qMode = (baseMode==='random') ? (Math.random()<0.5?'more':'less') : baseMode;
+  current = { leftColor, rightColor, leftNum, rightNum, qMode };
+}
+
+
+    function renderQuestion(){
+      // 見出し
+      dom.head.textContent = `どっちが　いくつ　${current.qMode==='more'?'おおい':'すくない'}かな？`;
+
+      // 左右エリア
+      renderSide(dom.left, current.leftColor, current.leftNum);
+      renderSide(dom.right, current.rightColor, current.rightNum);
+
+      // 回答欄初期化
+      selected = { color:null, number:null, mode: (baseMode==='random' ? null : current.qMode) };
+      dom.answers.color.textContent = '　';
+      dom.answers.number.textContent = '　';
+      dom.answers.mode.textContent = (baseMode==='random' ? '　' : (current.qMode==='more'?'おおい':'すくない'));
+
+      // ピッカー描画
+      renderColorPicks();
+      renderNumberPicks();
+      renderModePicks();
+
+      dom.result.textContent = '';
+      dom.checkBtn.hidden = false;
+      dom.checkBtn.disabled = false;
+      dom.nextBtn.hidden = true;
+      dom.nextBtn.textContent = (qIndex === 2) ? 'せいせきはっぴょうへ' : 'つぎのもんだいへ';
+    }
+
+    function renderSide(target, color, count){
+      target.chip.style.background = color.fill;
+      target.name.textContent = `${color.name}`;
+      target.side.style.background = color.bg;
+      // グリッド10個にドットを入れる（位置固定で整列）
+      target.grid.innerHTML = '';
+      for(let i=0;i<10;i++){
+        const d = document.createElement('div');
+        d.className = 'dot' + (i < count ? '' : ' hidden');
+        d.style.background = color.fill;
+        target.grid.appendChild(d);
+      }
+    }
+
+    // ===== 回答選択UI =====
+    let selected = { color:null, number:null, mode:'more' };
+
+    function renderColorPicks(){
+      dom.picks.color.innerHTML = '';
+      [current.leftColor, current.rightColor].forEach(c => {
+        const btn = document.createElement('button');
+        btn.className = 'pick';
+        btn.dataset.pickColor = c.key;
+        btn.innerHTML = `<span class="chip" style="background:${c.fill};"></span>${c.name}`;
+        btn.addEventListener('click', ()=>{
+          selected.color = c.key;
+          updatePickActiveStates();
+          dom.answers.color.textContent = c.name;
+        });
+        dom.picks.color.appendChild(btn);
+      });
+    }
+
+function renderModePicks(){
+  const show = (baseMode === 'random');
+
+  if(show){
+    // 表示：hidden属性を外し、ボタンを毎回生成（多重イベント防止）
+    dom.picks.mode.removeAttribute('hidden');
+    dom.picks.mode.innerHTML = `
+      <button class="pick" data-pick-mode="more">おおい</button>
+      <button class="pick" data-pick-mode="less">すくない</button>
+    `;
+    [...dom.picks.mode.querySelectorAll('[data-pick-mode]')].forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        selected.mode = btn.dataset.pickMode;
+        dom.answers.mode.textContent = (selected.mode==='more' ? 'おおい' : 'すくない');
+        updatePickActiveStates();
+      });
+    });
+    // 初期は未選択（selected.mode は renderQuestion で null にしている）
+    updatePickActiveStates();
+
+  }else{
+    // 非表示：hidden付与＆中身クリア（フォーカス事故防止）
+    dom.picks.mode.setAttribute('hidden','');
+    dom.picks.mode.innerHTML = '';
+  }
+}
+
+
+    function renderNumberPicks(){
+      dom.picks.number.innerHTML = '';
+      for(let n=1;n<=9;n++){
+        const b = document.createElement('button');
+        b.className = 'pick num';
+        b.textContent = n;
+        b.addEventListener('click', ()=>{
+          selected.number = n;
+          dom.answers.number.textContent = String(n);
+          updatePickActiveStates();
+        });
+        dom.picks.number.appendChild(b);
+      }
+    }
+
+    function updatePickActiveStates(){
+      // 色
+      [...dom.picks.color.children].forEach(btn=>{
+        const k = btn.dataset.pickColor;
+        btn.classList.toggle('active', selected.color===k);
+      });
+      // モード
+      if(baseMode==='random'){
+        [...dom.picks.mode.querySelectorAll('[data-pick-mode]')].forEach(btn=>{
+          btn.classList.toggle('active', selected.mode===btn.dataset.pickMode);
+        });
+      }
+      // 数字
+      [...dom.picks.number.children].forEach(btn=>{
+        btn.classList.toggle('active', selected.number===Number(btn.textContent));
+      });
+    }
+
+    // ===== 判定 =====
+    function checkAnswer(){
+      if(!selected.color || !selected.number || !selected.mode){
+        dom.result.textContent = 'えらんでいないところがあるよ';
+        dom.result.className = 'result-area';
+        return;
+      }
+      const leftMore = current.leftNum > current.rightNum;
+      const moreColor = leftMore ? current.leftColor : current.rightColor;
+      const lessColor = leftMore ? current.rightColor : current.leftColor;
+      const diff = Math.abs(current.leftNum - current.rightNum);
+
+      const needMode = baseMode==='random' ? selected.mode : current.qMode;
+      const targetColor = (needMode==='more') ? moreColor : lessColor;
+
+      const colorOK = (selected.color === targetColor.key);
+      const numberOK = (selected.number === diff);
+      const allOK = colorOK && numberOK;
+
+      // 表示
+      if(allOK){
+        dom.result.innerHTML = `⭕<span class="good">せいかい！</span>`;
+        dom.result.className = 'result-area good';
+      }else{
+        dom.result.innerHTML = `❌<span class="bad">ざんねん！</span>　${targetColor.name}が　${diff}こ　${needMode==='more'?'おおい':'すくない'}`;
+        dom.result.className = 'result-area bad';
+      }
+
+      history[qIndex] = allOK;
+
+      // 次の問題 or 成績
+      dom.checkBtn.hidden = true;
+      dom.checkBtn.disabled = true;
+      // 次へボタンを表示（3問目なら文言変更）
+      dom.nextBtn.hidden = false;
+      dom.nextBtn.textContent = (qIndex === 2) ? 'せいせきはっぴょうへ' : 'つぎのもんだいへ';
+    }
+
+    function goNext(){
+        qIndex++;
+        if(qIndex >= 3){
+            showSummary();
+        }else{
+            makeQuestion();
+            renderQuestion();
+        }
+    }
+
+
+    function showSummary(){
+      showScreen('summary');
+      dom.scoreRow.innerHTML = '';
+      const marks = history.map(v=> v? '⭕' : '❌');
+      marks.forEach((m,i)=>{
+        const span = document.createElement('span');
+        span.textContent = `${i+1}もんめ：${m}`;
+        dom.scoreRow.appendChild(span);
+      });
+      const correct = history.filter(Boolean).length;
+      let msg = '';
+      if(correct===0) msg = 'つぎは　がんばろう！';
+      else if(correct===1) msg = 'いいね！　つぎはもっとせいかいできるよ！';
+      else if(correct===2) msg = 'おしい！　ぜんもんせいかいをめざそう！';
+      else if(correct===3) msg = 'おめでとう！　ぜんもんせいかい！';
+      dom.summaryMsg.textContent = msg;
+
+      if(correct===3){
+        launchConfetti();
+      }
+    }
+
+    // ===== 紙吹雪（ユーザー提供関数を使用） =====
+    function launchConfetti() {
+      const canvas = document.getElementById('confetti-canvas');
+      const ctx = canvas.getContext('2d');
+
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      const confettiCount = 150;
+      const confetti = [];
+
+      for (let i = 0; i < confettiCount; i++) {
+        confetti.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height - canvas.height,
+          r: Math.random() * 6 + 4,
+          d: Math.random() * confettiCount,
+          color: `hsl(${Math.random() * 360}, 70%, 60%)`,
+          tilt: Math.random() * 10 - 10,
+          tiltAngleIncremental: Math.random() * 0.07 + 0.05,
+          tiltAngle: 0
+        });
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        confetti.forEach((c, i) => {
+          ctx.beginPath();
+          ctx.lineWidth = c.r;
+          ctx.strokeStyle = c.color;
+          ctx.moveTo(c.x + c.tilt + c.r / 2, c.y);
+          ctx.lineTo(c.x + c.tilt, c.y + c.tilt + c.r / 2);
+          ctx.stroke();
+        });
+        update();
+      }
+
+      function update() {
+        confetti.forEach((c, i) => {
+          c.tiltAngle += c.tiltAngleIncremental;
+          c.y += (Math.cos(c.d) + 3 + c.r / 2) / 2;
+          c.x += Math.sin(0);
+          c.tilt = Math.sin(c.tiltAngle - i) * 15;
+        });
+      }
+
+      let animationId;
+      function loop() {
+        draw();
+        animationId = requestAnimationFrame(loop);
+      }
+
+      loop();
+
+      setTimeout(() => {
+        cancelAnimationFrame(animationId);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }, 3000);
+    }
+
+  </script>
+</body>
+</html>
