@@ -149,6 +149,7 @@
   font-size: clamp(18px, 2.6vw, 22px);
   text-align:center;
   box-shadow: 0 6px 14px rgba(0,0,0,.04);
+  white-space: pre-wrap;
 }
 
 
@@ -259,7 +260,10 @@ const ITEM_PAIRS = [
   { unit:'まい',a:{ key:'pinkori',  name:'ピンクのおりがみ' }, b:{ key:'orangeori', name:'オレンジのおりがみ' } },
   { unit:'こ',  a:{ key:'tomato',   name:'トマト' },         b:{ key:'tamago',  name:'たまご' } },
   { unit:'こ',  a:{ key:'ame',      name:'あめ' },           b:{ key:'choco',   name:'チョコレート' } },
-  { unit:'だい',  a:{ key:'aokuruma',      name:'あおいくるま' }, b:{ key:'midorikuruma',   name:'みどりのくるま' } },
+  { unit:'こ',  a:{ key:'soccer',      name:'サッカーボール' }, b:{ key:'volley',   name:'バレーボール' } },
+  { unit:'こ',  a:{ key:'ichigocake',  name:'ショートケーキ' }, b:{ key:'cheese',   name:'チーズケーキ' } },
+  { unit:'こ',  a:{ key:'anpan',      name:'あんぱん' }, b:{ key:'cream',   name:'クリームパン' } },
+  { unit:'だい',  a:{ key:'kuruma',      name:'くるま' }, b:{ key:'truck',   name:'トラック' } },
 ];
 
 
@@ -398,8 +402,8 @@ if(isSentence){
   const L = current.leftItem  || current.leftColor;
   const R = current.rightItem || current.rightColor;
   dom.sentence.textContent =
-    `${L.name}が${current.leftNum}${unit}、${R.name}が${current.rightNum}${unit}あります。` +
-    `どちらがなん${unit} ${modeWord}でしょうか。`;
+  `${L.name}が${current.leftNum}${unit}、${R.name}が${current.rightNum}${unit}あります。\n` +
+  `どちらがなん${unit} ${modeWord}でしょうか。`;
 }else{
   renderSide(dom.left,  current.leftColor,  current.leftNum);
   renderSide(dom.right, current.rightColor, current.rightNum);
