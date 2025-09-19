@@ -31,7 +31,7 @@
     .btn.ghost{ background:#fff; border:2px solid #e5e7eb; }
     .btn:active{ transform: translateY(1px); }
 
-    .game-head{ font-weight:700; text-align:center; font-size: clamp(18px, 2.6vw, 26px); margin-bottom: 8px; }
+    .game-head{ font-weight:700; text-align:center; font-size: clamp(18px, 2.6vw, 26px); margin-top:20px; margin-bottom: 8px; }
 
     .board{ display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
@@ -121,19 +121,46 @@
 
 /* もんだいモード切替（トップ） */
 #qtype-seg .btn{
-  background: #f3f4f6;      /* 薄いグレー */
-  color: #6b7280;           /* やや暗い文字 */
-  border: 2px solid #e5e7eb;
-  opacity: .85;
-  filter: grayscale(.2);
+  /* 角四角にする（丸ボタンを打ち消す） */
+  border-radius:0;
+  /* 接合で線が濃く見えないよう薄めボーダー */
+  border:2px solid #e5e7eb;
+  background:#fff;
+  color:#6b7280;
+  padding:12px 16px;
+  box-shadow:none;       /* 影なしでフラット */
+  outline:none;
 }
 #qtype-seg .btn.active{
-  background: var(--accent);
-  color: #fff;
-  outline: 3px solid var(--accent);
-  border-color: transparent;
-  opacity: 1;
-  filter: none;
+  background:#fb923c;    /* オレンジ */
+  border-color:#fb923c;
+  color:#fff;
+  outline:none;          /* 既存の青アウトラインを無効化 */
+  position:relative;     /* 重なり順で上に */
+  z-index:1;
+}
+
+#qtype-seg .btn:active{
+  transform: translateY(0);
+}
+
+#qtype-seg{
+  display:flex;
+  justify-content:center;
+  margin-bottom:10px;
+  gap:0; /* ← 重要：隙間ゼロ */
+}
+/* ボタン同士をぴったり接合（境界線を重ねる） */
+#qtype-seg .btn + .btn{
+  margin-left:-2px;      /* ボーダー幅と同じだけ重ねる */
+}
+#qtype-seg .btn:first-child{
+  border-top-left-radius:8px;
+  border-bottom-left-radius:8px;
+}
+#qtype-seg .btn:last-child{
+  border-top-right-radius:8px;
+  border-bottom-right-radius:8px;
 }
 
 .btn, .pick {
@@ -162,12 +189,13 @@
 
     <!-- トップ画面 -->
     <section id="screen-top" class="panel" role="region" aria-label="トップ画面">
-      <p style="text-align:center; color:var(--muted); margin:8px 0 6px;">モードをえらんでね</p>
+      <p style="text-align:center; color:var(--muted); margin:8px 0 6px;">もんだいモードをえらんでね</p>
       <!-- 問題モード：おはじき／ぶんしょう -->
-<div class="seg" id="qtype-seg" style="display:flex; gap:8px; justify-content:center; margin-bottom:10px;">
-  <button class="btn ghost" data-qtype="chips">もんだいモード：おはじき</button>
-  <button class="btn ghost" data-qtype="sentence">もんだいモード：ぶんしょう</button>
+<div class="seg" id="qtype-seg" style="display:flex; justify-content:center; margin-bottom:10px;">
+  <button class="btn ghost" data-qtype="chips">おはじき</button>
+  <button class="btn ghost" data-qtype="sentence">ぶんしょう</button>
 </div>
+<p style="text-align:center; color:var(--muted); margin:8px 0 6px; margin-top:50px;">ボタンをおしたら　ゲームスタート！</p>
       <div class="top-buttons">
         <button class="btn primary" data-mode="more">おおい</button>
         <button class="btn primary" data-mode="less">すくない</button>
@@ -256,7 +284,6 @@ const ITEM_PAIRS = [
   { unit:'さつ',a:{ key:'akaihon',  name:'あかいほん' },     b:{ key:'aoihon',  name:'あおいほん' } },
   { unit:'まい',a:{ key:'cookie',   name:'クッキー' },       b:{ key:'biscuit', name:'ビスケット' } },
   { unit:'こ',  a:{ key:'akablock', name:'あかいブロック' }, b:{ key:'aoblock', name:'あおいブロック' } },
-  { unit:'とう',a:{ key:'uma',     name:'うま' },            b:{ key:'ushi',    name:'うし' } },
   { unit:'まい',a:{ key:'pinkori',  name:'ピンクのおりがみ' }, b:{ key:'orangeori', name:'オレンジのおりがみ' } },
   { unit:'こ',  a:{ key:'tomato',   name:'トマト' },         b:{ key:'tamago',  name:'たまご' } },
   { unit:'こ',  a:{ key:'ame',      name:'あめ' },           b:{ key:'choco',   name:'チョコレート' } },
